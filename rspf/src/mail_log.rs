@@ -5,7 +5,7 @@
 //! example:
 //!
 //! ```text
-//! Jul 22 19:27:42 host postfix/rspfd[12345]: from=<user@example.com>, client=mail.example.com[192.0.2.10], helo=mail.example.com, spf_helo=none, spf_mailfrom=pass, status=permit (Received-SPF: pass (...))
+//! Jul 22 19:27:42 host postfix/rspfd[12345]: status=permit (Received-SPF: pass (...)), from=<user@example.com>, client=mail.example.com[192.0.2.10], helo=mail.example.com, spf_helo=none, spf_mailfrom=pass
 //! ```
 //!
 //! This is in addition to, not instead of, the regular `tracing`-based
@@ -62,15 +62,16 @@ pub fn log_evaluated_spf(
     let client_name = non_empty(client_name).unwrap_or("unknown");
     let (status, detail) = describe_action(action);
 
-    let mut msg = format!(
-        "from=<{sender}>, client={client_name}[{client_ip}], helo={helo}, \
-         spf_helo={helo_result}, spf_mailfrom={mail_from_result}, status={status}"
-    );
+    let mut msg = format!("status={status}");
     if let Some(detail) = detail {
         msg.push_str(" (");
         msg.push_str(detail);
         msg.push(')');
     }
+    msg.push_str(&format!(
+        ", from=<{sender}>, client={client_name}[{client_ip}], helo={helo}, \
+         spf_helo={helo_result}, spf_mailfrom={mail_from_result}"
+    ));
 
     write_to_syslog(&sanitize(&msg));
 }

@@ -91,7 +91,7 @@ itself uses — so the two interleave in `/var/log/mail.log` (wherever your
 syslog routes `mail.*`):
 
 ```
-Jul 22 20:35:34 host postfix/rspfd[705106]: from=<user@gmail.com>, client=mail-wr1-f46.google.com[209.85.221.46], helo=mail-wr1-f46.google.com, spf_helo=none, spf_mailfrom=pass, status=permit (Received-SPF: pass (domain of user@gmail.com designates 209.85.221.46 as pass, matched "ip4:209.85.128.0/17") ...)
+Jul 22 20:35:34 host postfix/rspfd[705106]: status=permit (Received-SPF: pass (domain of user@gmail.com designates 209.85.221.46 as pass, matched "ip4:209.85.128.0/17") ...), from=<user@gmail.com>, client=mail-wr1-f46.google.com[209.85.221.46], helo=mail-wr1-f46.google.com, spf_helo=none, spf_mailfrom=pass
 ```
 
 `status` is `permit`, `reject`, or `defer`, matching Postfix's own
