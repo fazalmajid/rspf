@@ -174,6 +174,17 @@ record at all, an automatic "none" rather than a hard fail. An invalid or
 unrecognized hash always falls back to checking the literal, as-received
 sender; it is never treated as an automatic pass.
 
+## Security advisories
+
+`cargo audit` (`cargo install cargo-audit`) currently flags two advisories,
+both pinned by `viaspf`'s own `Cargo.toml` rather than anything in this
+project's control: a `hickory-proto` DNS-message-encoding CPU exhaustion
+issue (not believed exploitable here — we only ever encode simple
+single-question queries) and an `idna` Punycode-normalization issue (matters
+only if you configure `[overrides]`; see the ignore list for details). Both
+are documented with rationale in [`.cargo/audit.toml`](.cargo/audit.toml)
+and should be revisited once `viaspf` picks up fixed dependency versions.
+
 ## License
 
 AGPL-3.0-or-later. `rspf` depends on

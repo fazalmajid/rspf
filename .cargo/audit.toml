@@ -1,0 +1,30 @@
+# cargo-audit config. Run `cargo audit` (requires `cargo install cargo-audit`)
+# to check the workspace against the RustSec advisory database.
+#
+# Both entries below are pinned by viaspf's own Cargo.toml
+# (hickory-resolver = "0.24.0", idna = "0.4.0") — viaspf is still at its
+# latest available release (0.7.0-alpha.2), so we can't bump past them
+# ourselves without either patching viaspf or replacing its built-in
+# resolver integration. Re-run `cargo audit` (without --ignore) periodically
+# to check whether viaspf has picked up fixed versions.
+
+[advisories]
+ignore = [
+    # hickory-proto: CPU exhaustion via O(n^2) DNS message *encoding* with many
+    # records (fixed in hickory-proto >=0.26.1). rspf only ever encodes simple
+    # single-question queries via hickory-resolver's high-level lookup methods
+    # (A/AAAA/MX/TXT/PTR) — never a message with attacker-controllable record
+    # counts — so this is not believed to be practically exploitable here.
+    "RUSTSEC-2026-0119",
+
+    # idna: accepts Punycode labels that decode to pure ASCII (fixed in idna
+    # >=1.0), used internally by viaspf::DomainName::new() before every DNS
+    # lookup. Per the advisory, this mainly matters for security-sensitive
+    # domain *comparison*, which is relevant here only if [overrides] is
+    # configured: in theory a sender's include:/redirect= target whose
+    # Punycode decodes to the same ASCII string as a configured override key
+    # could inherit that override's SPF record. Accepted as a narrow,
+    # low-likelihood risk pending an upstream viaspf fix; avoid configuring
+    # [overrides] for domains where this distinction would matter.
+    "RUSTSEC-2024-0421",
+]
