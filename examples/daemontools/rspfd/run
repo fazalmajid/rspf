@@ -1,0 +1,14 @@
+#!/bin/sh
+# daemontools service/run script for rspfd, a Postfix SPF policy delegation
+# daemon. Install this whole directory as a daemontools service, e.g.:
+#
+#   apk add daemontools
+#   cp -r examples/daemontools/rspfd /etc/service/rspfd
+#   chmod +x /etc/service/rspfd/run /etc/service/rspfd/log/run
+#   mkdir -p /etc/service/rspfd/log/main
+#   svscan /etc/service &   # or however svscan is started on your system
+#
+# supervise pipes this script's stdout to ./log/run's stdin; merge stderr
+# into it too so multilog captures everything.
+exec 2>&1
+exec /usr/local/bin/rspfd --config /etc/rspf/rspf.toml

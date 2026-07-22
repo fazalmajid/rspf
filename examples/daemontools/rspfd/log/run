@@ -1,0 +1,5 @@
+#!/bin/sh
+# Reads rspfd's stdout/stderr (piped in by supervise from ../run) and writes
+# timestamped, size/age-rotated logs under ./main. Create that directory
+# before starting the service: mkdir -p /etc/service/rspfd/log/main
+exec multilog t ./main

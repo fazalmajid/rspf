@@ -1,0 +1,115 @@
+# Example configuration for rspfd, a Postfix SPF policy delegation daemon.
+#
+# Copy this file to /etc/rspf/rspf.toml and adjust it for your environment.
+# Validate a config file without starting the daemon with:
+#   rspfd --config /etc/rspf/rspf.toml --check-config
+# Regenerate this exact file with:
+#   rspfd --dump-example-config > config/rspf.toml.example
+
+[server]
+# Where rspfd listens for Postfix's check_policy_service connections.
+# Each entry is "tcp:<host>:<port>" or "unix:<path>". You can list more than
+# one (e.g. both a TCP and a Unix socket).
+listen = ["tcp:127.0.0.1:10045"]
+
+[log]
+# One of: "off", "error", "warn", "info", "debug", "trace".
+# Logs always go to stdout, for capture by your process supervisor (e.g.
+# daemontools' multilog via a log/run script).
+level = "info"
+
+[policy]
+# How to react to the HELO and MAIL FROM identities' SPF results.
+# One of:
+#   "fail"          - reject only on Fail (RFC 7208's hard failure)
+#   "soft_fail"      - reject on Fail or SoftFail
+#   "spf_not_pass"  - reject on anything other than Pass
+#   "never"         - never reject on this identity's Fail/SoftFail/Neutral/
+#                     None result (permerror_reject/temperror_defer below
+#                     still apply); still evaluated and logged
+#   "no_check"      - like "never", but also ignores permerror_reject/
+#                     temperror_defer for this identity; DNS evaluation and
+#                     logging still happen, only the action is suppressed
+helo_reject = "fail"
+mail_from_reject = "fail"
+# Independent of helo_reject/mail_from_reject: whether a PermError result
+# should cause a reject, and whether a TempError result should cause a
+# temporary defer. Both default to false (upstream pypolicyd-spf behavior).
+permerror_reject = false
+temperror_defer = false
+
+[skip]
+# Connections from these networks bypass SPF evaluation entirely (e.g. your
+# own trusted internal relays). CIDR notation, IPv4 or IPv6.
+addresses = ["127.0.0.0/8", "::1/128"]
+
+[whitelist]
+# Static exemptions, checked before any SPF evaluation runs.
+ips = []
+helo_names = []
+# Domain suffixes: matches if the HELO domain or MAIL FROM domain is this
+# domain or a subdomain of it.
+domains = []
+# Same, but matched against the reverse_client_name Postfix attribute (PTR).
+domains_ptr = []
+# Optional external files with additional entries, one per line, each
+# prefixed "ip:", "helo:", "domain:", or "ptr:" (# starts a comment).
+files = []
+
+[spf]
+# RFC 7208 recommends allowing at least 20 seconds for the whole check.
+lookup_timeout_secs = 20
+# RFC 7208's recommended void-lookup limit (NXDOMAIN/no-data responses).
+void_limit = 2
+# RFC 7208 mandates a limit of 10 DNS-lookup-causing mechanisms/modifiers;
+# only change this for exceptional circumstances.
+max_lookups = 10
+
+[overrides]
+# Force a specific SPF record for a domain, bypassing DNS entirely for it
+# (including when the domain is reached via include:/redirect=). Useful for
+# domains you control but that don't (yet) publish a real SPF record, or for
+# testing. Values must be syntactically valid SPF records.
+# "example.com" = "v=spf1 ip4:192.0.2.0/24 -all"
+
+[srs]
+# Sender Rewriting Scheme unwrapping for forwarded mail: when enabled, an
+# envelope sender of the form SRS0=HHH=TT=domain=local@rewrite-domain is
+# verified against `secrets` and, if valid, SPF is evaluated against the
+# original domain/local-part instead of the literal rewritten sender. This
+# must match the secret(s) configured on whatever relay rewrites addresses
+# (e.g. postsrsd). List multiple secrets to support rotation.
+enabled = false
+secrets = []
+max_age_days = 21
+
+[relay]
+# Skip SPF evaluation for mail from SASL-authenticated senders.
+exempt_sasl_authenticated = false
+# Additional trusted relay networks that bypass SPF evaluation (distinct
+# from [skip], so you can reason about "internal" vs. "trusted relay" IPs
+# separately if useful).
+trusted_relays = []
+
+[header]
+# "spf" to add a Received-SPF header (RFC 7208 §9.1) on non-reject/defer
+# outcomes, or "none" to add no header.
+mode = "spf"
+# When true, use "UNKNOWN" as the header's receiver instead of the
+# recipient's domain.
+hide_receiver = false
+# Overrides the receiver shown in the header (defaults to the recipient's
+# domain when unset).
+# authserv_id = "mx.example.com"
+
+[messages]
+# Per-result reject/defer message templates. Placeholders: {result},
+# {sender}, {helo}, {ip}, {recipient}. These become the literal Postfix
+# policy response text, so reject messages should start with an SMTP reply
+# code (5xx) and defer messages with a 4xx code.
+fail = "550 5.7.1 SPF check failed: {sender} is not allowed to send mail from {ip}"
+softfail = "550 5.7.1 SPF check failed (softfail): {sender} is not allowed to send mail from {ip}"
+neutral = "550 5.7.1 SPF check neutral for {sender} from {ip}"
+none = "550 5.7.1 SPF check found no record for {sender}"
+permerror = "550 5.7.1 SPF check permanent error for {sender}"
+temperror = "451 4.7.1 Temporary SPF error for {sender}, please try again later"

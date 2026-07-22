@@ -1,0 +1,29 @@
+[package]
+name = "rspf"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dev-dependencies]
+tempfile = "3.27.0"
+tokio = { version = "1.53.1", features = ["test-util", "macros", "rt-multi-thread"] }
+tokio-test = "0.4.5"
+
+[dependencies]
+arc-swap = "1.9.2"
+async-trait = "0.1.91"
+base64 = "0.22.1"
+bytes = "1.12.1"
+futures-util = { version = "0.3.33", features = ["sink"] }
+hickory-resolver = { version = "0.24", features = ["tokio"] }
+hmac = "0.12"
+ipnet = { version = "2.12.0", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+sha1 = "0.10"
+thiserror = "2.0.19"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "io-util", "macros", "signal", "time", "sync"] }
+tokio-util = { version = "0.7.19", features = ["codec"] }
+toml = "1.1.3"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter", "fmt"] }
+viaspf = { version = "=0.7.0-alpha.2", features = ["hickory-resolver", "tokio-timeout"] }

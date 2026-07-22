@@ -1,0 +1,32 @@
+# Add rspfd as a policy delegation check in Postfix's main.cf.
+#
+# rspfd is a standalone daemon (started by a process supervisor such as
+# daemontools, see examples/daemontools/rspfd/) that listens on its own
+# socket — Postfix
+# does NOT spawn it. This is the key operational difference from
+# pypolicyd-spf, which traditionally runs under master.cf's spawn(8) service
+# (one process per connection, over stdin/stdout). rspfd instead runs its
+# own persistent async accept loop and Postfix simply connects to it as a
+# policy service client, the same way it would talk to postgrey, rspamd, or
+# any other standalone Postfix policy daemon. No master.cf entry is needed.
+#
+# Place the check_policy_service entry late in
+# smtpd_recipient_restrictions, after your own reject_unauth_destination /
+# permit_mynetworks / permit_sasl_authenticated rules, so SPF is only
+# evaluated for mail that would otherwise be relayed or delivered:
+
+smtpd_recipient_restrictions =
+    permit_mynetworks,
+    permit_sasl_authenticated,
+    reject_unauth_destination,
+    check_policy_service { inet:127.0.0.1:10045, default_action=dunno },
+    permit
+
+# If rspfd is configured to listen on a Unix socket instead (see
+# config/rspf.toml.example's [server] listen = ["unix:/run/rspf/policy.sock"]),
+# use:
+#
+#   check_policy_service { unix:/run/rspf/policy.sock, default_action=dunno }
+#
+# `default_action=dunno` ensures Postfix fails open (accepts/continues
+# normal processing) if rspfd is unreachable, rather than blocking all mail.
