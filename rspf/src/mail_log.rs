@@ -1,11 +1,11 @@
 //! Mirrors the per-request SPF decision to syslog under the `mail`
 //! facility — the same facility Postfix itself logs to, and formatted to
 //! resemble Postfix's own log lines — so the two interleave in
-//! `/var/log/mail.log` (or wherever your syslog routes that facility) and
-//! can be correlated by queue ID. For example:
+//! `/var/log/mail.log` (or wherever your syslog routes that facility). For
+//! example:
 //!
 //! ```text
-//! Jul 22 19:27:42 host postfix/rspfd[12345]: 8045F2AB23: from=<user@example.com>, client=mail.example.com[192.0.2.10], helo=mail.example.com, spf_helo=none, spf_mailfrom=pass, status=permit (Received-SPF: pass (...))
+//! Jul 22 19:27:42 host postfix/rspfd[12345]: from=<user@example.com>, client=mail.example.com[192.0.2.10], helo=mail.example.com, spf_helo=none, spf_mailfrom=pass, status=permit (Received-SPF: pass (...))
 //! ```
 //!
 //! This is in addition to, not instead of, the regular `tracing`-based
@@ -13,6 +13,13 @@
 //! call independent of the `tracing` subscriber. A missing/unreachable
 //! syslog daemon is not fatal — `syslog(3)` has no failure return value, so
 //! this is inherently best-effort by design of the underlying C API.
+//!
+//! There's deliberately no queue ID here: Postfix's `queue_id` policy
+//! attribute is present-but-empty at the RCPT stage (this daemon's normal
+//! wiring point, via `check_policy_service` in
+//! `smtpd_recipient_restrictions`) because the message isn't queued yet — a
+//! real queue ID isn't assigned until `cleanup` runs, after `DATA`. Logging
+//! a field that's always empty in practice adds nothing.
 
 use std::ffi::CString;
 use std::net::IpAddr;
@@ -40,9 +47,7 @@ pub fn init() {
 
 /// Mirrors one request's SPF decision to syslog (facility `mail`, level
 /// `info`), in a Postfix-log-like `key=value, ...` style.
-#[allow(clippy::too_many_arguments)]
 pub fn log_evaluated_spf(
-    queue_id: Option<&str>,
     client_ip: IpAddr,
     client_name: Option<&str>,
     helo: &str,
@@ -51,12 +56,14 @@ pub fn log_evaluated_spf(
     mail_from_result: &SpfResult,
     action: &Action,
 ) {
-    let queue_id = queue_id.unwrap_or("NOQUEUE");
-    let client_name = client_name.unwrap_or("unknown");
+    // Postfix sends reverse_client_name present-but-empty (rather than
+    // omitting it) when the client has no PTR record, so `Option::unwrap_or`
+    // alone isn't enough — `Some("")` is not `None`.
+    let client_name = non_empty(client_name).unwrap_or("unknown");
     let (status, detail) = describe_action(action);
 
     let mut msg = format!(
-        "{queue_id}: from=<{sender}>, client={client_name}[{client_ip}], helo={helo}, \
+        "from=<{sender}>, client={client_name}[{client_ip}], helo={helo}, \
          spf_helo={helo_result}, spf_mailfrom={mail_from_result}, status={status}"
     );
     if let Some(detail) = detail {
@@ -66,6 +73,11 @@ pub fn log_evaluated_spf(
     }
 
     write_to_syslog(&sanitize(&msg));
+}
+
+/// Treats a present-but-empty attribute the same as an absent one.
+fn non_empty(s: Option<&str>) -> Option<&str> {
+    s.filter(|s| !s.is_empty())
 }
 
 /// Postfix-style status word plus an optional parenthesized detail (the
@@ -81,9 +93,9 @@ fn describe_action(action: &Action) -> (&'static str, Option<&str>) {
 
 /// Replaces control characters (notably CR/LF, which could otherwise be
 /// used to inject fake additional syslog lines) with spaces. The message
-/// embeds `helo`/`sender`/queue_id, which originate from the SMTP session
-/// (and, transitively via message templates, so does the reject/defer
-/// detail text), so none of it is fully trusted.
+/// embeds `helo`/`sender`, which originate from the SMTP session (and,
+/// transitively via message templates, so does the reject/defer detail
+/// text), so none of it is fully trusted.
 fn sanitize(s: &str) -> String {
     s.chars()
         .map(|c| if c.is_control() { ' ' } else { c })
@@ -120,6 +132,16 @@ mod tests {
         assert_eq!(sanitize("mail.example.com"), "mail.example.com");
         assert_eq!(sanitize("evil\r\ninjected: line"), "evil  injected: line");
         assert_eq!(sanitize("nul\0byte"), "nul byte");
+    }
+
+    #[test]
+    fn non_empty_treats_absent_and_empty_the_same() {
+        assert_eq!(non_empty(None), None);
+        assert_eq!(non_empty(Some("")), None);
+        assert_eq!(
+            non_empty(Some("mail.example.com")),
+            Some("mail.example.com")
+        );
     }
 
     #[test]

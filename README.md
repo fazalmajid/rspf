@@ -88,20 +88,20 @@ In addition to the stdout log above, every evaluated request's decision is
 also sent directly to syslog under the `mail` facility at `info` level,
 tagged `postfix/rspfd` — the same facility (and a similar log style) Postfix
 itself uses — so the two interleave in `/var/log/mail.log` (wherever your
-syslog routes `mail.*`) and can be correlated by queue ID:
+syslog routes `mail.*`):
 
 ```
-Jul 22 20:35:34 host postfix/rspfd[705106]: D9EB34D6745: from=<user@gmail.com>, client=mail-wr1-f46.google.com[209.85.221.46], helo=mail-wr1-f46.google.com, spf_helo=none, spf_mailfrom=pass, status=permit (Received-SPF: pass (domain of user@gmail.com designates 209.85.221.46 as pass, matched "ip4:209.85.128.0/17") ...)
+Jul 22 20:35:34 host postfix/rspfd[705106]: from=<user@gmail.com>, client=mail-wr1-f46.google.com[209.85.221.46], helo=mail-wr1-f46.google.com, spf_helo=none, spf_mailfrom=pass, status=permit (Received-SPF: pass (domain of user@gmail.com designates 209.85.221.46 as pass, matched "ip4:209.85.128.0/17") ...)
 ```
 
 `status` is `permit`, `reject`, or `defer`, matching Postfix's own
 `status=sent`/`status=bounced`/`status=deferred` convention; the
 parenthesized detail is the `Received-SPF` header text on permit, or the
-reject/defer reason otherwise. Postfix rarely hands a `queue_id` to policy
-services at the RCPT stage (the message isn't queued yet), so `queue_id`
-is usually `NOQUEUE` and `client` is `unknown[ip]` unless Postfix's
-`reverse_client_name` attribute resolved — the same convention Postfix's own
-`NOQUEUE: reject: ...` lines use.
+reject/defer reason otherwise. `client` is `unknown[ip]` unless Postfix's
+`reverse_client_name` attribute resolved. There's no queue ID: Postfix
+doesn't assign one until `cleanup` runs after `DATA`, so at the RCPT stage
+(this daemon's normal wiring point) it's always empty — logging a field
+that's never populated wouldn't add anything.
 
 This happens unconditionally (it isn't gated by `[log] level`) and is
 independent of the stdout log; it's a direct `syslog(3)` call, not part of

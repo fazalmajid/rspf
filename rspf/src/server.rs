@@ -142,7 +142,6 @@ async fn handle_request(state: &AppState, req: &crate::proto::PolicyRequest) -> 
         "evaluated SPF"
     );
     crate::mail_log::log_evaluated_spf(
-        req.queue_id.as_deref(),
         client_ip,
         req.reverse_client_name.as_deref(),
         helo,
