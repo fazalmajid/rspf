@@ -53,9 +53,9 @@ rspfd --dump-example-config > config/rspf.toml.example
 
 ## Running under daemontools
 
-`rspfd` always logs to stdout — it has no syslog or file-logging support of
-its own — so it's meant to run under a supervisor that captures that output,
-such as [daemontools](https://cr.yp.to/daemontools.html). See
+`rspfd`'s full application log (all levels, controlled by `[log] level`)
+always goes to stdout, so it's meant to run under a supervisor that captures
+that output, such as [daemontools](https://cr.yp.to/daemontools.html). See
 [`examples/daemontools/rspfd/`](examples/daemontools/rspfd/) for a ready-made
 service directory with a `run` script and a `log/run` script that pipes
 output through `multilog`.
@@ -81,6 +81,33 @@ are dropped. Note: `[spf]` and `[overrides]` are baked into the DNS
 evaluator at startup and are **not** affected by a reload; changing those
 requires a restart (`svc -t /etc/service/rspfd`, which stops then lets
 `svscan` restart it).
+
+### Mail-facility syslog mirror
+
+In addition to the stdout log above, every evaluated request's decision is
+also sent directly to syslog under the `mail` facility at `info` level,
+tagged `postfix/rspfd` — the same facility (and a similar log style) Postfix
+itself uses — so the two interleave in `/var/log/mail.log` (wherever your
+syslog routes `mail.*`) and can be correlated by queue ID:
+
+```
+Jul 22 20:35:34 host postfix/rspfd[705106]: D9EB34D6745: from=<user@gmail.com>, client=mail-wr1-f46.google.com[209.85.221.46], helo=mail-wr1-f46.google.com, spf_helo=none, spf_mailfrom=pass, status=permit (Received-SPF: pass (domain of user@gmail.com designates 209.85.221.46 as pass, matched "ip4:209.85.128.0/17") ...)
+```
+
+`status` is `permit`, `reject`, or `defer`, matching Postfix's own
+`status=sent`/`status=bounced`/`status=deferred` convention; the
+parenthesized detail is the `Received-SPF` header text on permit, or the
+reject/defer reason otherwise. Postfix rarely hands a `queue_id` to policy
+services at the RCPT stage (the message isn't queued yet), so `queue_id`
+is usually `NOQUEUE` and `client` is `unknown[ip]` unless Postfix's
+`reverse_client_name` attribute resolved — the same convention Postfix's own
+`NOQUEUE: reject: ...` lines use.
+
+This happens unconditionally (it isn't gated by `[log] level`) and is
+independent of the stdout log; it's a direct `syslog(3)` call, not part of
+the `tracing` pipeline. A missing or unreachable syslog daemon doesn't
+affect the rest of rspfd — `syslog(3)` has no failure return value, so this
+is inherently best-effort.
 
 ## Wiring into Postfix
 

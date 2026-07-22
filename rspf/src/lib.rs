@@ -1,6 +1,7 @@
 pub mod config;
 pub mod engine;
 pub mod logging;
+pub mod mail_log;
 pub mod net;
 pub mod proto;
 pub mod server;

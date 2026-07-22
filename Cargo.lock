@@ -815,6 +815,7 @@ dependencies = [
  "hickory-resolver",
  "hmac",
  "ipnet",
+ "libc",
  "serde",
  "sha1",
  "tempfile",

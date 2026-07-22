@@ -47,6 +47,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     rspf::logging::init(config.log.level);
+    rspf::mail_log::init();
 
     let shutdown = CancellationToken::new();
     let signal_shutdown = shutdown.clone();
