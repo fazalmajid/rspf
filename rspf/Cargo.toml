@@ -15,7 +15,7 @@ async-trait = "0.1.91"
 base64 = "0.22.1"
 bytes = "1.12.1"
 futures-util = { version = "0.3.33", features = ["sink"] }
-hickory-resolver = { version = "0.24", features = ["tokio"] }
+hickory-resolver = { version = "0.26", features = ["tokio"] }
 hmac = "0.12"
 ipnet = { version = "2.12.0", features = ["serde"] }
 libc = "0.2.189"
